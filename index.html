@@ -24,7 +24,11 @@
   .btn-primary { background: #0a7d3a; color: #fff; } .btn-blue { background: #1066cc; color: #fff; } .btn-gray { background: #e7e9ee; color: #1d1d1f; }
   #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-top: 8px; display: none; }
   .hint { font-size: 12px; color: #999; margin-top: 6px; }
-  #preview { width: 100%; border-radius: 10px; margin-top: 8px; display: none; }
+  #thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .thumb { position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 1px solid #d0d3d8; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb span { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,.6); color: #fff;
+                width: 20px; height: 20px; border-radius: 50%; font-size: 14px; line-height: 20px; text-align: center; cursor: pointer; }
   /* 浮動置中通知：固定在畫面中央，不論捲動位置都看得到 */
   #status {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(.96);
@@ -65,19 +69,19 @@
 
 <div class="card">
   <label id="t-photoLabel"></label>
-  <input type="file" id="photo" accept="image/*" capture="environment" style="display:none" onchange="onPhoto(event)">
-  <input type="file" id="photoUpload" accept="image/*" style="display:none" onchange="onPhoto(event)">
+  <input type="file" id="photo" accept="image/*" capture="environment" multiple style="display:none" onchange="onPhoto(event)">
+  <input type="file" id="photoUpload" accept="image/*" multiple style="display:none" onchange="onPhoto(event)">
   <button class="btn-blue full" id="t-photoBtn" onclick="document.getElementById('photo').click()"></button>
   <button class="btn-gray full" id="t-uploadPhotoBtn" onclick="document.getElementById('photoUpload').click()"></button>
-  <img id="preview">
-  <button class="btn-gray full" id="aiBtn" onclick="runAI()" style="display:none"></button>
+  <div id="thumbs"></div>
+  <button class="btn-primary full" id="aiBtn" onclick="runAI()" style="display:none"></button>
   <div class="hint" id="t-photoHint"></div>
 </div>
 
 <div class="card">
   <label id="t-hinmei"></label><input id="hinmei">
   <label id="t-maker"></label><input id="maker">
-  <label id="t-kikaku"></label><textarea id="kikaku"></textarea>
+  <label id="t-kikaku"></label><textarea id="kikaku" style="min-height:140px"></textarea>
   <div class="toggle" id="t-toggle" onclick="toggleExtra()"></div>
   <div class="extra" id="extra">
     <label id="t-taiwan"></label><input id="taiwan">
@@ -102,8 +106,8 @@ var I18N = {
     janLabel:'JANコード（バーコード）', janPh:'スキャンまたは手入力',
     scanBtn:'📷 バーコードをスキャン', scanStop:'⏹ スキャンを停止',
     janHint:'カメラにバーコードを写すと自動で読み取ります。手入力も可能です。',
-    photoLabel:'商品写真 → AI 自動認識', photoBtn:'📸 写真を撮る', uploadPhotoBtn:'🖼️ 写真をアップロード', aiBtn:'🤖 AIで 品名 / メーカー / 規格 を認識',
-    photoHint:'AIが下の3項目を自動入力します。認識後も修正できます。',
+    photoLabel:'商品写真（複数可：パッケージ各面・店頭説明など）', photoBtn:'📸 写真を撮る', uploadPhotoBtn:'🖼️ 写真をアップロード', aiBtn:'🤖 AIで商品紹介を生成',
+    photoHint:'複数枚OK。AIが全写真から「品名・メーカー」と、中日2言語の商品説明を生成し製品規格欄(O列)に入れます。',
     hinmei:'品名', hinmeiPh:'商品名（日本語）', maker:'メーカー', makerPh:'メーカー / ブランド',
     kikaku:'製品規格', kikakuPh:'サイズ / 素材 / 入数 / 型番…',
     toggleOpen:'▾ その他の項目を開く（任意）', toggleClose:'▴ その他の項目を閉じる',
@@ -111,16 +115,17 @@ var I18N = {
     cost:'宇泉コスト(税抜)', jodai:'上代', caseWeight:'ケース重量(g)', itemWeight:'商品重量/個(kg)',
     fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格', biko:'備考',
     uploadBtn:'⬆️ Google Sheet に登録', uploadHint:'登録日(A列)は登録当日の日付が自動で入ります',
-    scanned:'✅ バーコード読取：', needPhoto:'先に写真を撮るか選択してください', aiing:'AI認識中…',
-    aiFail:'認識失敗：', aiDone:'✅ AIが入力しました。確認・修正してください', needInput:'バーコードか品名を入力してください',
+    scanned:'✅ バーコード読取：', needPhoto:'先に写真を撮るか選択してください', aiing:'AIが商品紹介を生成中…（数十秒かかる場合があります）',
+    aiFail:'生成失敗：', aiDone:'✅ 商品紹介を生成しました。製品規格欄を確認・修正してください', needInput:'バーコードか品名を入力してください',
+    remove:'削除',
     uploading:'登録中…', uploadedA:'✅ ', uploadedB:'行目に登録（登録日 ', uploadFail:'登録失敗：', camFail:'カメラを開けません：',
     netFail:'通信エラー：' },
   zh: { htmlLang:'zh-Hant', title:'📦 商品建檔',
     janLabel:'JANコード（條碼）', janPh:'掃描或手動輸入',
     scanBtn:'📷 掃描條碼', scanStop:'⏹ 停止掃描',
     janHint:'把條碼對準鏡頭就會自動讀取。也可手動輸入。',
-    photoLabel:'商品照片 → AI 自動辨識', photoBtn:'📸 拍照', uploadPhotoBtn:'🖼️ 上傳照片', aiBtn:'🤖 用 AI 辨識 品名 / メーカー / 規格',
-    photoHint:'AI 會自動填下面三欄，辨識後仍可手動修改。',
+    photoLabel:'商品照片（可多張：包裝各面、現場介紹等）', photoBtn:'📸 拍照', uploadPhotoBtn:'🖼️ 上傳照片', aiBtn:'🤖 用 AI 生成商品介紹',
+    photoHint:'可多張。AI 會整合所有照片，產出「品名‧メーカー」與中日雙語商品介紹，填入製品規格欄(O欄)。',
     hinmei:'品名', hinmeiPh:'商品名稱（日文）', maker:'メーカー（製造商）', makerPh:'製造商 / 品牌',
     kikaku:'製品規格', kikakuPh:'尺寸 / 材質 / 入數 / 型號…',
     toggleOpen:'▾ 展開其他欄位（選填）', toggleClose:'▴ 收合其他欄位',
@@ -128,8 +133,9 @@ var I18N = {
     cost:'宇泉コスト(未稅)', jodai:'上代（建議售價）', caseWeight:'ケース重量(g/整箱)', itemWeight:'商品重量/個(kg)',
     fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格(含稅)', biko:'備考（備註）',
     uploadBtn:'⬆️ 上傳到 Google Sheet', uploadHint:'登録日(A欄)會自動帶入上傳當天日期',
-    scanned:'✅ 已掃到條碼：', needPhoto:'請先拍照或選擇照片', aiing:'AI 辨識中…',
-    aiFail:'辨識失敗：', aiDone:'✅ AI 已填入，請確認並修改', needInput:'請至少填條碼或品名',
+    scanned:'✅ 已掃到條碼：', needPhoto:'請先拍照或選擇照片', aiing:'AI 生成商品介紹中…（可能需數十秒）',
+    aiFail:'生成失敗：', aiDone:'✅ 已生成商品介紹，請確認並修改製品規格欄', needInput:'請至少填條碼或品名',
+    remove:'刪除',
     uploading:'上傳中…', uploadedA:'✅ 已寫入第 ', uploadedB:' 列（登録日 ', uploadFail:'上傳失敗：', camFail:'無法開啟相機：',
     netFail:'連線錯誤：' }
 };
@@ -199,39 +205,50 @@ function stopScan(){
 }
 
 // ====== 拍照 + AI ======
-var photoB64='', photoMime='image/jpeg';
+var photos=[]; // 多張照片：[{dataUrl, b64}]
 function onPhoto(e){
-  var file=e.target.files[0]; if(!file) return;
-  // 先在手機端縮圖＋壓縮，避免照片太大導致請求失敗 (Failed to fetch)
-  var reader=new FileReader();
-  reader.onload=function(){
-    var img=new Image();
-    img.onload=function(){
-      var max=1024; // 長邊上限，AI 辨識足夠
-      var w=img.naturalWidth, h=img.naturalHeight, scale=Math.min(1, max/Math.max(w,h));
-      var cw=Math.round(w*scale), ch=Math.round(h*scale);
-      var canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
-      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
-      var dataUrl=canvas.toDataURL('image/jpeg', 0.75); // 壓成 JPEG 品質0.75
-      photoMime='image/jpeg';
-      photoB64=dataUrl.split(',')[1];
-      var p=document.getElementById('preview'); p.src=dataUrl; p.style.display='block';
-      document.getElementById('aiBtn').style.display='block';
+  var files=e.target.files; if(!files||!files.length) return;
+  Array.prototype.forEach.call(files, function(file){
+    var reader=new FileReader();
+    reader.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        var max=1024; // 長邊上限，縮圖壓縮避免請求過大
+        var w=img.naturalWidth, h=img.naturalHeight, scale=Math.min(1, max/Math.max(w,h));
+        var cw=Math.round(w*scale), ch=Math.round(h*scale);
+        var canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
+        canvas.getContext('2d').drawImage(img,0,0,cw,ch);
+        var dataUrl=canvas.toDataURL('image/jpeg', 0.75);
+        photos.push({ dataUrl:dataUrl, b64:dataUrl.split(',')[1] });
+        renderThumbs();
+      };
+      img.src=reader.result;
     };
-    img.src=reader.result;
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+  });
+  e.target.value=''; // 清空，方便再次選同一張/連續加
+}
+function renderThumbs(){
+  var box=document.getElementById('thumbs'); box.innerHTML='';
+  photos.forEach(function(p,i){
+    var d=document.createElement('div'); d.className='thumb';
+    d.innerHTML='<img src="'+p.dataUrl+'"><span title="'+T().remove+'">×</span>';
+    d.querySelector('span').onclick=function(){ photos.splice(i,1); renderThumbs(); };
+    box.appendChild(d);
+  });
+  document.getElementById('aiBtn').style.display = photos.length ? 'block' : 'none';
 }
 function runAI(){
-  if(!photoB64){ show(T().needPhoto,'err'); return; }
+  if(!photos.length){ show(T().needPhoto,'err'); return; }
   show('<span class="spin"></span>'+T().aiing,'info',true);
-  postAPI({ action:'recognize', imageBase64:photoB64, mimeType:photoMime })
+  var images=photos.map(function(p){ return { data:p.b64, mimeType:'image/jpeg' }; });
+  postAPI({ action:'recognize', images:images })
     .then(function(res){
       if(!res.ok){ show(T().aiFail+res.error,'err'); return; }
       if(res.hinmei) document.getElementById('hinmei').value=res.hinmei;
       if(res.maker)  document.getElementById('maker').value=res.maker;
-      if(res.kikaku) document.getElementById('kikaku').value=res.kikaku;
-      show(T().aiDone,'ok'); setTimeout(hideStatus,2500);
+      if(res.descHtml) document.getElementById('kikaku').value=res.descHtml; // 商品介紹 HTML → O 欄
+      show(T().aiDone,'ok'); setTimeout(hideStatus,3000);
     }).catch(function(e){ show(T().netFail+e,'err'); });
 }
 
@@ -261,7 +278,7 @@ function postAPI(body){
 function clearForm(){
   ['jan','hinmei','taiwan','maker','shiire','moq','cost','jodai','caseWeight','hakoiri','itemWeight','fob','sdPrice','kikaku','biko']
    .forEach(function(id){ document.getElementById(id).value=''; });
-  document.getElementById('preview').style.display='none'; document.getElementById('aiBtn').style.display='none'; photoB64='';
+  photos=[]; renderThumbs();
   window.scrollTo(0,0);
 }
 function toggleExtra(){
