@@ -66,7 +66,9 @@
 <div class="card">
   <label id="t-photoLabel"></label>
   <input type="file" id="photo" accept="image/*" capture="environment" style="display:none" onchange="onPhoto(event)">
+  <input type="file" id="photoUpload" accept="image/*" style="display:none" onchange="onPhoto(event)">
   <button class="btn-blue full" id="t-photoBtn" onclick="document.getElementById('photo').click()"></button>
+  <button class="btn-gray full" id="t-uploadPhotoBtn" onclick="document.getElementById('photoUpload').click()"></button>
   <img id="preview">
   <button class="btn-gray full" id="aiBtn" onclick="runAI()" style="display:none"></button>
   <div class="hint" id="t-photoHint"></div>
@@ -100,7 +102,7 @@ var I18N = {
     janLabel:'JANコード（バーコード）', janPh:'スキャンまたは手入力',
     scanBtn:'📷 バーコードをスキャン', scanStop:'⏹ スキャンを停止',
     janHint:'カメラにバーコードを写すと自動で読み取ります。手入力も可能です。',
-    photoLabel:'商品写真 → AI 自動認識', photoBtn:'📸 写真を撮る / 選択', aiBtn:'🤖 AIで 品名 / メーカー / 規格 を認識',
+    photoLabel:'商品写真 → AI 自動認識', photoBtn:'📸 写真を撮る', uploadPhotoBtn:'🖼️ 写真をアップロード', aiBtn:'🤖 AIで 品名 / メーカー / 規格 を認識',
     photoHint:'AIが下の3項目を自動入力します。認識後も修正できます。',
     hinmei:'品名', hinmeiPh:'商品名（日本語）', maker:'メーカー', makerPh:'メーカー / ブランド',
     kikaku:'製品規格', kikakuPh:'サイズ / 素材 / 入数 / 型番…',
@@ -117,7 +119,7 @@ var I18N = {
     janLabel:'JANコード（條碼）', janPh:'掃描或手動輸入',
     scanBtn:'📷 掃描條碼', scanStop:'⏹ 停止掃描',
     janHint:'把條碼對準鏡頭就會自動讀取。也可手動輸入。',
-    photoLabel:'商品照片 → AI 自動辨識', photoBtn:'📸 拍照 / 選照片', aiBtn:'🤖 用 AI 辨識 品名 / メーカー / 規格',
+    photoLabel:'商品照片 → AI 自動辨識', photoBtn:'📸 拍照', uploadPhotoBtn:'🖼️ 上傳照片', aiBtn:'🤖 用 AI 辨識 品名 / メーカー / 規格',
     photoHint:'AI 會自動填下面三欄，辨識後仍可手動修改。',
     hinmei:'品名', hinmeiPh:'商品名稱（日文）', maker:'メーカー（製造商）', makerPh:'製造商 / 品牌',
     kikaku:'製品規格', kikakuPh:'尺寸 / 材質 / 入數 / 型號…',
@@ -143,7 +145,7 @@ function applyLang(){
   document.getElementById('lang-zh').className=(lang==='zh')?'active':'';
   set('t-title',t.title); set('t-janLabel',t.janLabel); ph('jan',t.janPh);
   set('t-scanBtn', scanning ? t.scanStop : t.scanBtn); set('t-janHint',t.janHint);
-  set('t-photoLabel',t.photoLabel); set('t-photoBtn',t.photoBtn); set('aiBtn',t.aiBtn); set('t-photoHint',t.photoHint);
+  set('t-photoLabel',t.photoLabel); set('t-photoBtn',t.photoBtn); set('t-uploadPhotoBtn',t.uploadPhotoBtn); set('aiBtn',t.aiBtn); set('t-photoHint',t.photoHint);
   set('t-hinmei',t.hinmei); ph('hinmei',t.hinmeiPh); set('t-maker',t.maker); ph('maker',t.makerPh);
   set('t-kikaku',t.kikaku); ph('kikaku',t.kikakuPh);
   var open=document.getElementById('extra').style.display==='block';
