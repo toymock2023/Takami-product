@@ -116,7 +116,8 @@
     <input type="checkbox" id="shop2000" checked onchange="toggleShop2000()" style="width:20px; height:20px;">
     <span id="t-shop2000Label"></span>
   </label>
-  <div id="shop2000Fields">
+  <div class="toggle" id="t-shop2000Toggle" onclick="toggleShop2000Fields()"></div>
+  <div id="shop2000Fields" style="display:none">
     <div class="hint" id="t-shop2000Hint"></div>
     <div class="row2"><div><label id="t-kawase"></label><input id="kawase" inputmode="decimal"></div><div><label id="t-shopPrice"></label><input id="shopPrice" inputmode="decimal"></div></div>
     <div class="row2"><div><label id="t-setPrice"></label><input id="setPrice" inputmode="decimal"></div><div><label id="t-orderUnit"></label><input id="orderUnit"></div></div>
@@ -145,6 +146,7 @@ var I18N = {
     cost:'宇泉コスト(税抜)', jodai:'上代', caseWeight:'ケース重量(g)', itemWeight:'商品重量/個(kg)',
     fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格', biko:'備考',
     shop2000Label:'SHOP2000 分頁にも同時に登録する', shop2000Hint:'掲載日とJANコードは自動。以下は任意入力です。',
+    shop2000Open:'▾ その他の項目を開く（任意）', shop2000Close:'▴ その他の項目を閉じる',
     kawase:'為替', shopPrice:'shop2000売価(JPY)', setPrice:'セット売り売価', orderUnit:'注文単位', stock:'庫存量', limitQty:'限量',
     shop2000Done:'｜SHOP2000:',
     uploadBtn:'⬆️ Google Sheet に登録', uploadHint:'登録日(A列)は登録当日の日付が自動で入ります',
@@ -166,6 +168,7 @@ var I18N = {
     cost:'宇泉コスト(未稅)', jodai:'上代（建議售價）', caseWeight:'ケース重量(g/整箱)', itemWeight:'商品重量/個(kg)',
     fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格(含稅)', biko:'備考（備註）',
     shop2000Label:'同時也上傳到 SHOP2000 分頁', shop2000Hint:'掲載日與JANコード自動帶入，以下為選填。',
+    shop2000Open:'▾ 展開其他欄位（選填）', shop2000Close:'▴ 收合其他欄位',
     kawase:'為替（匯率）', shopPrice:'shop2000売価(JPY)', setPrice:'セット売り売価（套組售價）', orderUnit:'注文単位（訂購單位）', stock:'庫存量', limitQty:'限量',
     shop2000Done:'｜SHOP2000:',
     uploadBtn:'⬆️ 上傳到 Google Sheet', uploadHint:'登録日(A欄)會自動帶入上傳當天日期',
@@ -197,6 +200,8 @@ function applyLang(){
   set('t-cost',t.cost); set('t-jodai',t.jodai); set('t-caseWeight',t.caseWeight); set('t-itemWeight',t.itemWeight);
   set('t-fob',t.fob); set('t-sdPrice',t.sdPrice); set('t-biko',t.biko);
   set('t-shop2000Label',t.shop2000Label); set('t-shop2000Hint',t.shop2000Hint);
+  var s2open=document.getElementById('shop2000Fields').style.display==='block';
+  set('t-shop2000Toggle', s2open?t.shop2000Close:t.shop2000Open);
   set('t-kawase',t.kawase); set('t-shopPrice',t.shopPrice); set('t-setPrice',t.setPrice);
   set('t-orderUnit',t.orderUnit); set('t-stock',t.stock); set('t-limitQty',t.limitQty);
   set('t-uploadBtn',t.uploadBtn); set('t-uploadHint',t.uploadHint);
@@ -348,9 +353,17 @@ function upload(){
       } else { show(T().uploadFail+res.error,'err'); }
     }).catch(function(e){ btn.disabled=false; btn.textContent=T().uploadBtn; show(T().netFail+e,'err'); });
 }
+// 勾選框：控制「展開連結」與欄位區是否顯示（不勾就整個收掉）
 function toggleShop2000(){
-  document.getElementById('shop2000Fields').style.display =
-    document.getElementById('shop2000').checked ? 'block' : 'none';
+  var on=document.getElementById('shop2000').checked;
+  document.getElementById('t-shop2000Toggle').style.display = on ? 'block' : 'none';
+  if(!on){ document.getElementById('shop2000Fields').style.display='none'; }
+}
+// 展開／收合選填欄位（預設收起）
+function toggleShop2000Fields(){
+  var e=document.getElementById('shop2000Fields');
+  e.style.display=(e.style.display==='block')?'none':'block';
+  set('t-shop2000Toggle',(e.style.display==='block')?T().shop2000Close:T().shop2000Open);
 }
 
 // 用 text/plain 避免 CORS 預檢（simple request）
