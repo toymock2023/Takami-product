@@ -25,8 +25,17 @@
   #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-top: 8px; display: none; }
   .hint { font-size: 12px; color: #999; margin-top: 6px; }
   #preview { width: 100%; border-radius: 10px; margin-top: 8px; display: none; }
-  #status { text-align: center; font-size: 14px; padding: 10px; border-radius: 10px; display: none; margin-bottom: 14px; }
-  .s-ok { background: #e3f6e9; color: #0a7d3a; } .s-err { background: #fdeaea; color: #c0392b; } .s-info { background: #eaf2fd; color: #1066cc; }
+  /* 浮動置中通知：固定在畫面中央，不論捲動位置都看得到 */
+  #status {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(.96);
+    z-index: 9999; text-align: center; font-size: 16px; font-weight: 600;
+    padding: 18px 22px; border-radius: 14px; display: none; max-width: 86%;
+    box-shadow: 0 8px 30px rgba(0,0,0,.25); opacity: 0; transition: opacity .18s, transform .18s;
+    pointer-events: none; line-height: 1.5;
+  }
+  #status.shown { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .s-ok { background: #0a7d3a; color: #fff; } .s-err { background: #c0392b; color: #fff; } .s-info { background: #1066cc; color: #fff; }
+  .s-info .spin, .s-ok .spin, .s-err .spin { border-color: rgba(255,255,255,.6); border-top-color: transparent; }
   .toggle { font-size: 13px; color: #1066cc; text-align: center; padding: 8px; cursor: pointer; }
   .extra { display: none; }
   .spin { display:inline-block; width:14px; height:14px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:r .7s linear infinite; vertical-align:middle; margin-right:6px;}
@@ -145,8 +154,18 @@ function applyLang(){
 function set(id,v){ document.getElementById(id).textContent=v; }
 function ph(id,v){ document.getElementById(id).placeholder=v; }
 
-function show(msg,type){ var el=document.getElementById('status'); el.className='s-'+type; el.innerHTML=msg; el.style.display='block'; }
-function hideStatus(){ document.getElementById('status').style.display='none'; }
+function show(msg,type){
+  var el=document.getElementById('status');
+  el.className='s-'+type; el.innerHTML=msg;
+  el.style.display='block';
+  // 強制 reflow 後加 shown，觸發淡入動畫
+  void el.offsetWidth; el.classList.add('shown');
+}
+function hideStatus(){
+  var el=document.getElementById('status');
+  el.classList.remove('shown');
+  setTimeout(function(){ el.style.display='none'; }, 200);
+}
 
 // ====== 即時掃描（GitHub Pages 是正常網站，相機可用）======
 var qr=null, scanning=false;
@@ -168,11 +187,25 @@ function stopScan(){
 var photoB64='', photoMime='image/jpeg';
 function onPhoto(e){
   var file=e.target.files[0]; if(!file) return;
-  photoMime=file.type||'image/jpeg';
-  var r=new FileReader();
-  r.onload=function(){ var u=r.result; var p=document.getElementById('preview'); p.src=u; p.style.display='block';
-    document.getElementById('aiBtn').style.display='block'; photoB64=u.split(',')[1]; };
-  r.readAsDataURL(file);
+  // 先在手機端縮圖＋壓縮，避免照片太大導致請求失敗 (Failed to fetch)
+  var reader=new FileReader();
+  reader.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      var max=1024; // 長邊上限，AI 辨識足夠
+      var w=img.naturalWidth, h=img.naturalHeight, scale=Math.min(1, max/Math.max(w,h));
+      var cw=Math.round(w*scale), ch=Math.round(h*scale);
+      var canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
+      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
+      var dataUrl=canvas.toDataURL('image/jpeg', 0.75); // 壓成 JPEG 品質0.75
+      photoMime='image/jpeg';
+      photoB64=dataUrl.split(',')[1];
+      var p=document.getElementById('preview'); p.src=dataUrl; p.style.display='block';
+      document.getElementById('aiBtn').style.display='block';
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 function runAI(){
   if(!photoB64){ show(T().needPhoto,'err'); return; }
