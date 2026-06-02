@@ -97,11 +97,11 @@
 
 <div class="card">
   <label id="t-hinmei"></label><input id="hinmei">
+  <label id="t-taiwan"></label><input id="taiwan">
   <label id="t-maker"></label><input id="maker">
   <label id="t-kikaku"></label><textarea id="kikaku" style="min-height:140px"></textarea>
   <div class="toggle" id="t-toggle" onclick="toggleExtra()"></div>
   <div class="extra" id="extra">
-    <label id="t-taiwan"></label><input id="taiwan">
     <label id="t-shiire"></label><input id="shiire">
     <div class="row2"><div><label id="t-moq"></label><input id="moq" inputmode="numeric"></div><div><label id="t-hakoiri"></label><input id="hakoiri" inputmode="numeric"></div></div>
     <div class="row2"><div><label id="t-cost"></label><input id="cost" inputmode="decimal"></div><div><label id="t-jodai"></label><input id="jodai" inputmode="decimal"></div></div>
@@ -315,9 +315,10 @@ function runAI(){
   postAPI({ action:'recognize', images:images })
     .then(function(res){
       if(!res.ok){ show(T().aiFail+res.error,'err'); return; }
-      if(res.hinmei) document.getElementById('hinmei').value=res.hinmei;
-      if(res.maker)  document.getElementById('maker').value=res.maker;
-      if(res.descHtml) document.getElementById('kikaku').value=res.descHtml; // 商品介紹 HTML → O 欄
+      if(res.hinmei)     document.getElementById('hinmei').value=res.hinmei;
+      if(res.taiwanName) document.getElementById('taiwan').value=res.taiwanName; // 台湾名 → D 欄
+      if(res.maker)      document.getElementById('maker').value=res.maker;
+      if(res.descHtml)   document.getElementById('kikaku').value=res.descHtml; // 商品介紹 HTML → O 欄
       show(T().aiDone,'ok'); setTimeout(hideStatus,3000);
     }).catch(function(e){ show(T().netFail+e,'err'); });
 }
