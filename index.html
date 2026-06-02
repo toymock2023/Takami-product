@@ -34,6 +34,7 @@
     pointer-events: none; line-height: 1.5;
   }
   #status.shown { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #backdrop { position: fixed; inset: 0; z-index: 9998; display: none; background: rgba(0,0,0,.04); }
   .s-ok { background: #0a7d3a; color: #fff; } .s-err { background: #c0392b; color: #fff; } .s-info { background: #1066cc; color: #fff; }
   .s-info .spin, .s-ok .spin, .s-err .spin { border-color: rgba(255,255,255,.6); border-top-color: transparent; }
   .toggle { font-size: 13px; color: #1066cc; text-align: center; padding: 8px; cursor: pointer; }
@@ -51,6 +52,7 @@
     <button id="lang-zh" onclick="setLang('zh')">中文</button>
   </div>
 </div>
+<div id="backdrop"></div>
 <div id="status"></div>
 
 <div class="card">
@@ -154,18 +156,29 @@ function applyLang(){
 function set(id,v){ document.getElementById(id).textContent=v; }
 function ph(id,v){ document.getElementById(id).placeholder=v; }
 
-function show(msg,type){
+var statusBusy=false; // true=處理中（不可手動關，等完成自動關）
+function show(msg,type,busy){
+  statusBusy = !!busy;
   var el=document.getElementById('status');
-  el.className='s-'+type; el.innerHTML=msg;
+  el.className='s-'+type + (statusBusy?' busy':''); el.innerHTML=msg;
   el.style.display='block';
-  // 強制 reflow 後加 shown，觸發淡入動畫
   void el.offsetWidth; el.classList.add('shown');
+  // 一般通知顯示遮罩，點擊任意處關閉；處理中不顯示遮罩
+  document.getElementById('backdrop').style.display = statusBusy ? 'none' : 'block';
 }
 function hideStatus(){
+  statusBusy=false;
   var el=document.getElementById('status');
   el.classList.remove('shown');
+  document.getElementById('backdrop').style.display='none';
   setTimeout(function(){ el.style.display='none'; }, 200);
 }
+// 點通知以外（遮罩）關閉一般通知
+document.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('backdrop').addEventListener('click', function(){
+    if(!statusBusy) hideStatus();
+  });
+});
 
 // ====== 即時掃描（GitHub Pages 是正常網站，相機可用）======
 var qr=null, scanning=false;
@@ -209,7 +222,7 @@ function onPhoto(e){
 }
 function runAI(){
   if(!photoB64){ show(T().needPhoto,'err'); return; }
-  show('<span class="spin"></span>'+T().aiing,'info');
+  show('<span class="spin"></span>'+T().aiing,'info',true);
   postAPI({ action:'recognize', imageBase64:photoB64, mimeType:photoMime })
     .then(function(res){
       if(!res.ok){ show(T().aiFail+res.error,'err'); return; }
@@ -228,7 +241,7 @@ function upload(){
     itemWeight:val('itemWeight'),fob:val('fob'),sdPrice:val('sdPrice'),kikaku:val('kikaku'),biko:val('biko') };
   if(!data.jan && !data.hinmei){ show(T().needInput,'err'); return; }
   var btn=document.getElementById('t-uploadBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>'+T().uploading;
-  show('<span class="spin"></span>'+T().uploading,'info');
+  show('<span class="spin"></span>'+T().uploading,'info',true);
   postAPI({ action:'append', data:data })
     .then(function(res){
       btn.disabled=false; btn.textContent=T().uploadBtn;
