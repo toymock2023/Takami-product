@@ -94,6 +94,19 @@
   </div>
 </div>
 
+<div class="card">
+  <label style="display:flex; align-items:center; gap:10px; margin:0; font-size:15px; color:#1d1d1f; cursor:pointer;">
+    <input type="checkbox" id="shop2000" checked onchange="toggleShop2000()" style="width:20px; height:20px;">
+    <span id="t-shop2000Label"></span>
+  </label>
+  <div id="shop2000Fields">
+    <div class="hint" id="t-shop2000Hint"></div>
+    <div class="row2"><div><label id="t-kawase"></label><input id="kawase" inputmode="decimal"></div><div><label id="t-shopPrice"></label><input id="shopPrice" inputmode="decimal"></div></div>
+    <div class="row2"><div><label id="t-setPrice"></label><input id="setPrice" inputmode="decimal"></div><div><label id="t-orderUnit"></label><input id="orderUnit"></div></div>
+    <div class="row2"><div><label id="t-stock"></label><input id="stock" inputmode="numeric"></div><div><label id="t-limitQty"></label><input id="limitQty" inputmode="numeric"></div></div>
+  </div>
+</div>
+
 <button class="btn-primary full" id="t-uploadBtn" onclick="upload()"></button>
 <div class="hint" style="text-align:center;margin-top:8px" id="t-uploadHint"></div>
 
@@ -114,6 +127,9 @@ var I18N = {
     taiwan:'台湾名', shiire:'仕入れ先', moq:'MOQ/carton', hakoiri:'箱入数',
     cost:'宇泉コスト(税抜)', jodai:'上代', caseWeight:'ケース重量(g)', itemWeight:'商品重量/個(kg)',
     fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格', biko:'備考',
+    shop2000Label:'SHOP2000 分頁にも同時に登録する', shop2000Hint:'掲載日とJANコードは自動。以下は任意入力です。',
+    kawase:'為替', shopPrice:'shop2000売価(JPY)', setPrice:'セット売り売価', orderUnit:'注文単位', stock:'庫存量', limitQty:'限量',
+    shop2000Done:'｜SHOP2000:',
     uploadBtn:'⬆️ Google Sheet に登録', uploadHint:'登録日(A列)は登録当日の日付が自動で入ります',
     scanned:'✅ バーコード読取：', needPhoto:'先に写真を撮るか選択してください', aiing:'AIが商品紹介を生成中…（数十秒かかる場合があります）',
     aiFail:'生成失敗：', aiDone:'✅ 商品紹介を生成しました。商品詳細欄を確認・修正してください', needInput:'バーコードか品名を入力してください',
@@ -132,6 +148,9 @@ var I18N = {
     taiwan:'台湾名（台灣名）', shiire:'仕入れ先（供應商）', moq:'MOQ/carton', hakoiri:'箱入数（每箱數量）',
     cost:'宇泉コスト(未稅)', jodai:'上代（建議售價）', caseWeight:'ケース重量(g/整箱)', itemWeight:'商品重量/個(kg)',
     fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格(含稅)', biko:'備考（備註）',
+    shop2000Label:'同時也上傳到 SHOP2000 分頁', shop2000Hint:'掲載日與JANコード自動帶入，以下為選填。',
+    kawase:'為替（匯率）', shopPrice:'shop2000売価(JPY)', setPrice:'セット売り売価（套組售價）', orderUnit:'注文単位（訂購單位）', stock:'庫存量', limitQty:'限量',
+    shop2000Done:'｜SHOP2000:',
     uploadBtn:'⬆️ 上傳到 Google Sheet', uploadHint:'登録日(A欄)會自動帶入上傳當天日期',
     scanned:'✅ 已掃到條碼：', needPhoto:'請先拍照或選擇照片', aiing:'AI 生成商品介紹中…（可能需數十秒）',
     aiFail:'生成失敗：', aiDone:'✅ 已生成商品介紹，請確認並修改商品詳細欄', needInput:'請至少填條碼或品名',
@@ -159,6 +178,9 @@ function applyLang(){
   set('t-taiwan',t.taiwan); set('t-shiire',t.shiire); set('t-moq',t.moq); set('t-hakoiri',t.hakoiri);
   set('t-cost',t.cost); set('t-jodai',t.jodai); set('t-caseWeight',t.caseWeight); set('t-itemWeight',t.itemWeight);
   set('t-fob',t.fob); set('t-sdPrice',t.sdPrice); set('t-biko',t.biko);
+  set('t-shop2000Label',t.shop2000Label); set('t-shop2000Hint',t.shop2000Hint);
+  set('t-kawase',t.kawase); set('t-shopPrice',t.shopPrice); set('t-setPrice',t.setPrice);
+  set('t-orderUnit',t.orderUnit); set('t-stock',t.stock); set('t-limitQty',t.limitQty);
   set('t-uploadBtn',t.uploadBtn); set('t-uploadHint',t.uploadHint);
 }
 function set(id,v){ document.getElementById(id).textContent=v; }
@@ -258,15 +280,28 @@ function upload(){
   var data={ jan:val('jan'),hinmei:val('hinmei'),taiwan:val('taiwan'),maker:val('maker'),shiire:val('shiire'),
     moq:val('moq'),cost:val('cost'),jodai:val('jodai'),caseWeight:val('caseWeight'),hakoiri:val('hakoiri'),
     itemWeight:val('itemWeight'),fob:val('fob'),sdPrice:val('sdPrice'),kikaku:val('kikaku'),biko:val('biko') };
+  // SHOP2000 同步
+  data.shop2000 = document.getElementById('shop2000').checked;
+  if(data.shop2000){
+    data.kawase=val('kawase'); data.shopPrice=val('shopPrice'); data.setPrice=val('setPrice');
+    data.orderUnit=val('orderUnit'); data.stock=val('stock'); data.limitQty=val('limitQty');
+  }
   if(!data.jan && !data.hinmei){ show(T().needInput,'err'); return; }
   var btn=document.getElementById('t-uploadBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>'+T().uploading;
   show('<span class="spin"></span>'+T().uploading,'info',true);
   postAPI({ action:'append', data:data })
     .then(function(res){
       btn.disabled=false; btn.textContent=T().uploadBtn;
-      if(res.ok){ show(T().uploadedA+res.row+T().uploadedB+res.date+'）','ok'); clearForm(); }
-      else { show(T().uploadFail+res.error,'err'); }
+      if(res.ok){
+        var msg=T().uploadedA+res.row+T().uploadedB+res.date+'）';
+        if(res.shop2000){ msg += res.shop2000.ok ? (T().shop2000Done+res.shop2000.row) : (T().shop2000Done+'✗ '+res.shop2000.error); }
+        show(msg,'ok'); clearForm();
+      } else { show(T().uploadFail+res.error,'err'); }
     }).catch(function(e){ btn.disabled=false; btn.textContent=T().uploadBtn; show(T().netFail+e,'err'); });
+}
+function toggleShop2000(){
+  document.getElementById('shop2000Fields').style.display =
+    document.getElementById('shop2000').checked ? 'block' : 'none';
 }
 
 // 用 text/plain 避免 CORS 預檢（simple request）
@@ -276,7 +311,8 @@ function postAPI(body){
 }
 
 function clearForm(){
-  ['jan','hinmei','taiwan','maker','shiire','moq','cost','jodai','caseWeight','hakoiri','itemWeight','fob','sdPrice','kikaku','biko']
+  ['jan','hinmei','taiwan','maker','shiire','moq','cost','jodai','caseWeight','hakoiri','itemWeight','fob','sdPrice','kikaku','biko',
+   'kawase','shopPrice','setPrice','orderUnit','stock','limitQty']
    .forEach(function(id){ document.getElementById(id).value=''; });
   photos=[]; renderThumbs();
   window.scrollTo(0,0);
