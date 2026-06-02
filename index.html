@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>宇泉 商品登録</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.css">
+<script src="https://unpkg.com/cropperjs@1.6.1/dist/cropper.min.js"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { font-family: -apple-system, "Helvetica Neue", "Noto Sans CJK JP", "Noto Sans CJK TC", sans-serif;
@@ -46,6 +48,12 @@
   .spin { display:inline-block; width:14px; height:14px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:r .7s linear infinite; vertical-align:middle; margin-right:6px;}
   @keyframes r { to { transform: rotate(360deg); } }
   .jancode { letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+  /* 裁剪彈窗 */
+  #cropModal { position: fixed; inset: 0; z-index: 10000; background: #000; display: none; flex-direction: column; }
+  #cropArea { flex: 1; overflow: hidden; }
+  #cropArea img { max-width: 100%; display: block; }
+  #cropBar { display: flex; gap: 10px; padding: 12px; background: #111; }
+  #cropBar button { flex: 1; }
 </style>
 </head>
 <body>
@@ -58,6 +66,15 @@
 </div>
 <div id="backdrop"></div>
 <div id="status"></div>
+
+<!-- 裁剪彈窗 -->
+<div id="cropModal">
+  <div id="cropArea"><img id="cropImg"></div>
+  <div id="cropBar">
+    <button class="btn-gray" id="t-cropCancel" onclick="cropCancel()"></button>
+    <button class="btn-primary" id="t-cropOk" onclick="cropConfirm()"></button>
+  </div>
+</div>
 
 <div class="card">
   <label id="t-janLabel"></label>
@@ -133,7 +150,7 @@ var I18N = {
     uploadBtn:'⬆️ Google Sheet に登録', uploadHint:'登録日(A列)は登録当日の日付が自動で入ります',
     scanned:'✅ バーコード読取：', needPhoto:'先に写真を撮るか選択してください', aiing:'AIが商品紹介を生成中…（数十秒かかる場合があります）',
     aiFail:'生成失敗：', aiDone:'✅ 商品紹介を生成しました。商品詳細欄を確認・修正してください', needInput:'バーコードか品名を入力してください',
-    remove:'削除',
+    remove:'削除', cropTitle:'切り抜き', cropOk:'✓ 決定', cropCancel:'キャンセル',
     uploading:'登録中…', uploadedA:'✅ ', uploadedB:'行目に登録（登録日 ', uploadFail:'登録失敗：', camFail:'カメラを開けません：',
     netFail:'通信エラー：' },
   zh: { htmlLang:'zh-Hant', title:'📦 商品建檔',
@@ -154,7 +171,7 @@ var I18N = {
     uploadBtn:'⬆️ 上傳到 Google Sheet', uploadHint:'登録日(A欄)會自動帶入上傳當天日期',
     scanned:'✅ 已掃到條碼：', needPhoto:'請先拍照或選擇照片', aiing:'AI 生成商品介紹中…（可能需數十秒）',
     aiFail:'生成失敗：', aiDone:'✅ 已生成商品介紹，請確認並修改商品詳細欄', needInput:'請至少填條碼或品名',
-    remove:'刪除',
+    remove:'刪除', cropTitle:'裁剪', cropOk:'✓ 確定', cropCancel:'取消',
     uploading:'上傳中…', uploadedA:'✅ 已寫入第 ', uploadedB:' 列（登録日 ', uploadFail:'上傳失敗：', camFail:'無法開啟相機：',
     netFail:'連線錯誤：' }
 };
@@ -171,6 +188,7 @@ function applyLang(){
   set('t-title',t.title); set('t-janLabel',t.janLabel); ph('jan',t.janPh);
   set('t-scanBtn', scanning ? t.scanStop : t.scanBtn); set('t-janHint',t.janHint);
   set('t-photoLabel',t.photoLabel); set('t-photoBtn',t.photoBtn); set('t-uploadPhotoBtn',t.uploadPhotoBtn); set('aiBtn',t.aiBtn); set('t-photoHint',t.photoHint);
+  set('t-cropOk',t.cropOk); set('t-cropCancel',t.cropCancel);
   set('t-hinmei',t.hinmei); ph('hinmei',t.hinmeiPh); set('t-maker',t.maker); ph('maker',t.makerPh);
   set('t-kikaku',t.kikaku); ph('kikaku',t.kikakuPh);
   var open=document.getElementById('extra').style.display==='block';
@@ -226,29 +244,59 @@ function stopScan(){
   qr=null; scanning=false; set('t-scanBtn',T().scanBtn); document.getElementById('reader').style.display='none';
 }
 
-// ====== 拍照 + AI ======
-var photos=[]; // 多張照片：[{dataUrl, b64}]
+// ====== 拍照 + 裁剪 + AI ======
+var photos=[];        // 已確認的照片：[{dataUrl, b64}]
+var cropQueue=[];     // 待裁剪的 dataUrl 佇列（多張依序裁）
+var cropper=null;
+
 function onPhoto(e){
   var files=e.target.files; if(!files||!files.length) return;
   Array.prototype.forEach.call(files, function(file){
     var reader=new FileReader();
-    reader.onload=function(){
-      var img=new Image();
-      img.onload=function(){
-        var max=1024; // 長邊上限，縮圖壓縮避免請求過大
-        var w=img.naturalWidth, h=img.naturalHeight, scale=Math.min(1, max/Math.max(w,h));
-        var cw=Math.round(w*scale), ch=Math.round(h*scale);
-        var canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
-        canvas.getContext('2d').drawImage(img,0,0,cw,ch);
-        var dataUrl=canvas.toDataURL('image/jpeg', 0.75);
-        photos.push({ dataUrl:dataUrl, b64:dataUrl.split(',')[1] });
-        renderThumbs();
-      };
-      img.src=reader.result;
-    };
+    reader.onload=function(){ cropQueue.push(reader.result); if(!cropper) openNextCrop(); };
     reader.readAsDataURL(file);
   });
-  e.target.value=''; // 清空，方便再次選同一張/連續加
+  e.target.value=''; // 清空，方便連續加
+}
+
+// 開啟下一張的裁剪畫面
+function openNextCrop(){
+  if(!cropQueue.length){ document.getElementById('cropModal').style.display='none'; return; }
+  var dataUrl=cropQueue[0];
+  document.getElementById('cropModal').style.display='flex';
+  var img=document.getElementById('cropImg');
+  img.src=dataUrl;
+  if(cropper){ cropper.destroy(); cropper=null; }
+  cropper=new Cropper(img, { viewMode:1, autoCropArea:0.9, background:false, responsive:true });
+}
+function cropConfirm(){
+  if(!cropper) return;
+  var canvas=cropper.getCroppedCanvas({ maxWidth:2000, maxHeight:2000 });
+  processImage(canvas.toDataURL('image/jpeg', 0.9)); // 裁後的圖再進壓縮流程
+  cropper.destroy(); cropper=null;
+  cropQueue.shift();
+  openNextCrop();
+}
+function cropCancel(){
+  if(cropper){ cropper.destroy(); cropper=null; }
+  cropQueue.shift();   // 跳過這張
+  openNextCrop();
+}
+
+// 裁剪後的圖：縮圖＋壓縮後加入 photos
+function processImage(dataUrl){
+  var img=new Image();
+  img.onload=function(){
+    var max=1024;
+    var w=img.naturalWidth, h=img.naturalHeight, scale=Math.min(1, max/Math.max(w,h));
+    var cw=Math.round(w*scale), ch=Math.round(h*scale);
+    var canvas=document.createElement('canvas'); canvas.width=cw; canvas.height=ch;
+    canvas.getContext('2d').drawImage(img,0,0,cw,ch);
+    var out=canvas.toDataURL('image/jpeg', 0.75);
+    photos.push({ dataUrl:out, b64:out.split(',')[1] });
+    renderThumbs();
+  };
+  img.src=dataUrl;
 }
 function renderThumbs(){
   var box=document.getElementById('thumbs'); box.innerHTML='';
