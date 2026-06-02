@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>宇泉 商品登録</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "Helvetica Neue", "Noto Sans CJK JP", "Noto Sans CJK TC", sans-serif;
+         margin: 0; padding: 16px; background: #f5f6f8; color: #1d1d1f; max-width: 560px; margin: 0 auto; }
+  .head { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 16px; }
+  h1 { font-size: 20px; margin: 0; }
+  .lang { display: flex; border: 1px solid #c9ccd2; border-radius: 999px; overflow: hidden; }
+  .lang button { font-size: 13px; font-weight: 600; padding: 6px 14px; border: none; background: #fff; color: #555; cursor: pointer; }
+  .lang button.active { background: #0a7d3a; color: #fff; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  label { display: block; font-size: 13px; color: #666; margin: 10px 0 4px; }
+  input, textarea { width: 100%; font-size: 16px; padding: 11px 12px; border: 1px solid #d0d3d8; border-radius: 10px; background: #fafbfc; }
+  textarea { resize: vertical; min-height: 56px; }
+  .row2 { display: flex; gap: 10px; } .row2 > div { flex: 1; }
+  button { font-size: 16px; font-weight: 600; padding: 14px; border: none; border-radius: 12px; cursor: pointer; }
+  .full { width: 100%; margin-top: 10px; }
+  .btn-primary { background: #0a7d3a; color: #fff; } .btn-blue { background: #1066cc; color: #fff; } .btn-gray { background: #e7e9ee; color: #1d1d1f; }
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-top: 8px; display: none; }
+  .hint { font-size: 12px; color: #999; margin-top: 6px; }
+  #preview { width: 100%; border-radius: 10px; margin-top: 8px; display: none; }
+  #status { text-align: center; font-size: 14px; padding: 10px; border-radius: 10px; display: none; margin-bottom: 14px; }
+  .s-ok { background: #e3f6e9; color: #0a7d3a; } .s-err { background: #fdeaea; color: #c0392b; } .s-info { background: #eaf2fd; color: #1066cc; }
+  .toggle { font-size: 13px; color: #1066cc; text-align: center; padding: 8px; cursor: pointer; }
+  .extra { display: none; }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:r .7s linear infinite; vertical-align:middle; margin-right:6px;}
+  @keyframes r { to { transform: rotate(360deg); } }
+  .jancode { letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="head">
+  <h1 id="t-title"></h1>
+  <div class="lang">
+    <button id="lang-ja" onclick="setLang('ja')">日本語</button>
+    <button id="lang-zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+<div id="status"></div>
+
+<div class="card">
+  <label id="t-janLabel"></label>
+  <input id="jan" class="jancode" inputmode="numeric">
+  <button class="btn-blue full" id="t-scanBtn" onclick="toggleScan()"></button>
+  <div id="reader"></div>
+  <div class="hint" id="t-janHint"></div>
+</div>
+
+<div class="card">
+  <label id="t-photoLabel"></label>
+  <input type="file" id="photo" accept="image/*" capture="environment" style="display:none" onchange="onPhoto(event)">
+  <button class="btn-blue full" id="t-photoBtn" onclick="document.getElementById('photo').click()"></button>
+  <img id="preview">
+  <button class="btn-gray full" id="aiBtn" onclick="runAI()" style="display:none"></button>
+  <div class="hint" id="t-photoHint"></div>
+</div>
+
+<div class="card">
+  <label id="t-hinmei"></label><input id="hinmei">
+  <label id="t-maker"></label><input id="maker">
+  <label id="t-kikaku"></label><textarea id="kikaku"></textarea>
+  <div class="toggle" id="t-toggle" onclick="toggleExtra()"></div>
+  <div class="extra" id="extra">
+    <label id="t-taiwan"></label><input id="taiwan">
+    <label id="t-shiire"></label><input id="shiire">
+    <div class="row2"><div><label id="t-moq"></label><input id="moq" inputmode="numeric"></div><div><label id="t-hakoiri"></label><input id="hakoiri" inputmode="numeric"></div></div>
+    <div class="row2"><div><label id="t-cost"></label><input id="cost" inputmode="decimal"></div><div><label id="t-jodai"></label><input id="jodai" inputmode="decimal"></div></div>
+    <div class="row2"><div><label id="t-caseWeight"></label><input id="caseWeight" inputmode="decimal"></div><div><label id="t-itemWeight"></label><input id="itemWeight" inputmode="decimal"></div></div>
+    <div class="row2"><div><label id="t-fob"></label><input id="fob" inputmode="decimal"></div><div><label id="t-sdPrice"></label><input id="sdPrice" inputmode="decimal"></div></div>
+    <label id="t-biko"></label><textarea id="biko"></textarea>
+  </div>
+</div>
+
+<button class="btn-primary full" id="t-uploadBtn" onclick="upload()"></button>
+<div class="hint" style="text-align:center;margin-top:8px" id="t-uploadHint"></div>
+
+<script>
+// ⚠️ 部署後把這裡換成你的 Apps Script 網頁應用程式網址（.../exec）
+var API_URL = 'https://script.google.com/macros/s/AKfycbyQGj9w6YPWFe6eJr41KqQt-C5ZrhDgOTD3C9ZMJCmGaBkWvgHT5klOJW50TOH10_r_4g/exec';
+
+var I18N = {
+  ja: { htmlLang:'ja', title:'📦 商品登録',
+    janLabel:'JANコード（バーコード）', janPh:'スキャンまたは手入力',
+    scanBtn:'📷 バーコードをスキャン', scanStop:'⏹ スキャンを停止',
+    janHint:'カメラにバーコードを写すと自動で読み取ります。手入力も可能です。',
+    photoLabel:'商品写真 → AI 自動認識', photoBtn:'📸 写真を撮る / 選択', aiBtn:'🤖 AIで 品名 / メーカー / 規格 を認識',
+    photoHint:'AIが下の3項目を自動入力します。認識後も修正できます。',
+    hinmei:'品名', hinmeiPh:'商品名（日本語）', maker:'メーカー', makerPh:'メーカー / ブランド',
+    kikaku:'製品規格', kikakuPh:'サイズ / 素材 / 入数 / 型番…',
+    toggleOpen:'▾ その他の項目を開く（任意）', toggleClose:'▴ その他の項目を閉じる',
+    taiwan:'台湾名', shiire:'仕入れ先', moq:'MOQ/carton', hakoiri:'箱入数',
+    cost:'宇泉コスト(税抜)', jodai:'上代', caseWeight:'ケース重量(g)', itemWeight:'商品重量/個(kg)',
+    fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格', biko:'備考',
+    uploadBtn:'⬆️ Google Sheet に登録', uploadHint:'登録日(A列)は登録当日の日付が自動で入ります',
+    scanned:'✅ バーコード読取：', needPhoto:'先に写真を撮るか選択してください', aiing:'AI認識中…',
+    aiFail:'認識失敗：', aiDone:'✅ AIが入力しました。確認・修正してください', needInput:'バーコードか品名を入力してください',
+    uploading:'登録中…', uploadedA:'✅ ', uploadedB:'行目に登録（登録日 ', uploadFail:'登録失敗：', camFail:'カメラを開けません：',
+    netFail:'通信エラー：' },
+  zh: { htmlLang:'zh-Hant', title:'📦 商品建檔',
+    janLabel:'JANコード（條碼）', janPh:'掃描或手動輸入',
+    scanBtn:'📷 掃描條碼', scanStop:'⏹ 停止掃描',
+    janHint:'把條碼對準鏡頭就會自動讀取。也可手動輸入。',
+    photoLabel:'商品照片 → AI 自動辨識', photoBtn:'📸 拍照 / 選照片', aiBtn:'🤖 用 AI 辨識 品名 / メーカー / 規格',
+    photoHint:'AI 會自動填下面三欄，辨識後仍可手動修改。',
+    hinmei:'品名', hinmeiPh:'商品名稱（日文）', maker:'メーカー（製造商）', makerPh:'製造商 / 品牌',
+    kikaku:'製品規格', kikakuPh:'尺寸 / 材質 / 入數 / 型號…',
+    toggleOpen:'▾ 展開其他欄位（選填）', toggleClose:'▴ 收合其他欄位',
+    taiwan:'台湾名（台灣名）', shiire:'仕入れ先（供應商）', moq:'MOQ/carton', hakoiri:'箱入数（每箱數量）',
+    cost:'宇泉コスト(未稅)', jodai:'上代（建議售價）', caseWeight:'ケース重量(g/整箱)', itemWeight:'商品重量/個(kg)',
+    fob:'宇泉→毓秀堂FOB', sdPrice:'SD税込価格(含稅)', biko:'備考（備註）',
+    uploadBtn:'⬆️ 上傳到 Google Sheet', uploadHint:'登録日(A欄)會自動帶入上傳當天日期',
+    scanned:'✅ 已掃到條碼：', needPhoto:'請先拍照或選擇照片', aiing:'AI 辨識中…',
+    aiFail:'辨識失敗：', aiDone:'✅ AI 已填入，請確認並修改', needInput:'請至少填條碼或品名',
+    uploading:'上傳中…', uploadedA:'✅ 已寫入第 ', uploadedB:' 列（登録日 ', uploadFail:'上傳失敗：', camFail:'無法開啟相機：',
+    netFail:'連線錯誤：' }
+};
+
+var lang = 'ja';
+try { lang = localStorage.getItem('lang') || 'ja'; } catch(e) {}
+function T(){ return I18N[lang]; }
+function setLang(l){ lang=l; try{localStorage.setItem('lang',l);}catch(e){} applyLang(); }
+
+function applyLang(){
+  var t=T(); document.documentElement.lang=t.htmlLang;
+  document.getElementById('lang-ja').className=(lang==='ja')?'active':'';
+  document.getElementById('lang-zh').className=(lang==='zh')?'active':'';
+  set('t-title',t.title); set('t-janLabel',t.janLabel); ph('jan',t.janPh);
+  set('t-scanBtn', scanning ? t.scanStop : t.scanBtn); set('t-janHint',t.janHint);
+  set('t-photoLabel',t.photoLabel); set('t-photoBtn',t.photoBtn); set('aiBtn',t.aiBtn); set('t-photoHint',t.photoHint);
+  set('t-hinmei',t.hinmei); ph('hinmei',t.hinmeiPh); set('t-maker',t.maker); ph('maker',t.makerPh);
+  set('t-kikaku',t.kikaku); ph('kikaku',t.kikakuPh);
+  var open=document.getElementById('extra').style.display==='block';
+  set('t-toggle', open?t.toggleClose:t.toggleOpen);
+  set('t-taiwan',t.taiwan); set('t-shiire',t.shiire); set('t-moq',t.moq); set('t-hakoiri',t.hakoiri);
+  set('t-cost',t.cost); set('t-jodai',t.jodai); set('t-caseWeight',t.caseWeight); set('t-itemWeight',t.itemWeight);
+  set('t-fob',t.fob); set('t-sdPrice',t.sdPrice); set('t-biko',t.biko);
+  set('t-uploadBtn',t.uploadBtn); set('t-uploadHint',t.uploadHint);
+}
+function set(id,v){ document.getElementById(id).textContent=v; }
+function ph(id,v){ document.getElementById(id).placeholder=v; }
+
+function show(msg,type){ var el=document.getElementById('status'); el.className='s-'+type; el.innerHTML=msg; el.style.display='block'; }
+function hideStatus(){ document.getElementById('status').style.display='none'; }
+
+// ====== 即時掃描（GitHub Pages 是正常網站，相機可用）======
+var qr=null, scanning=false;
+function toggleScan(){
+  if (scanning){ stopScan(); return; }
+  document.getElementById('reader').style.display='block';
+  qr=new Html5Qrcode('reader'); scanning=true; set('t-scanBtn',T().scanStop);
+  qr.start({facingMode:'environment'}, {fps:10, qrbox:{width:260,height:160}},
+    function(text){ document.getElementById('jan').value=text; stopScan(); show(T().scanned+text,'ok'); setTimeout(hideStatus,2000); },
+    function(){})
+   .catch(function(e){ show(T().camFail+e,'err'); scanning=false; set('t-scanBtn',T().scanBtn); document.getElementById('reader').style.display='none'; });
+}
+function stopScan(){
+  if(qr){ qr.stop().then(function(){qr.clear();}).catch(function(){}); }
+  qr=null; scanning=false; set('t-scanBtn',T().scanBtn); document.getElementById('reader').style.display='none';
+}
+
+// ====== 拍照 + AI ======
+var photoB64='', photoMime='image/jpeg';
+function onPhoto(e){
+  var file=e.target.files[0]; if(!file) return;
+  photoMime=file.type||'image/jpeg';
+  var r=new FileReader();
+  r.onload=function(){ var u=r.result; var p=document.getElementById('preview'); p.src=u; p.style.display='block';
+    document.getElementById('aiBtn').style.display='block'; photoB64=u.split(',')[1]; };
+  r.readAsDataURL(file);
+}
+function runAI(){
+  if(!photoB64){ show(T().needPhoto,'err'); return; }
+  show('<span class="spin"></span>'+T().aiing,'info');
+  postAPI({ action:'recognize', imageBase64:photoB64, mimeType:photoMime })
+    .then(function(res){
+      if(!res.ok){ show(T().aiFail+res.error,'err'); return; }
+      if(res.hinmei) document.getElementById('hinmei').value=res.hinmei;
+      if(res.maker)  document.getElementById('maker').value=res.maker;
+      if(res.kikaku) document.getElementById('kikaku').value=res.kikaku;
+      show(T().aiDone,'ok'); setTimeout(hideStatus,2500);
+    }).catch(function(e){ show(T().netFail+e,'err'); });
+}
+
+// ====== 上傳 ======
+function val(id){ return document.getElementById(id).value.trim(); }
+function upload(){
+  var data={ jan:val('jan'),hinmei:val('hinmei'),taiwan:val('taiwan'),maker:val('maker'),shiire:val('shiire'),
+    moq:val('moq'),cost:val('cost'),jodai:val('jodai'),caseWeight:val('caseWeight'),hakoiri:val('hakoiri'),
+    itemWeight:val('itemWeight'),fob:val('fob'),sdPrice:val('sdPrice'),kikaku:val('kikaku'),biko:val('biko') };
+  if(!data.jan && !data.hinmei){ show(T().needInput,'err'); return; }
+  var btn=document.getElementById('t-uploadBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>'+T().uploading;
+  show('<span class="spin"></span>'+T().uploading,'info');
+  postAPI({ action:'append', data:data })
+    .then(function(res){
+      btn.disabled=false; btn.textContent=T().uploadBtn;
+      if(res.ok){ show(T().uploadedA+res.row+T().uploadedB+res.date+'）','ok'); clearForm(); }
+      else { show(T().uploadFail+res.error,'err'); }
+    }).catch(function(e){ btn.disabled=false; btn.textContent=T().uploadBtn; show(T().netFail+e,'err'); });
+}
+
+// 用 text/plain 避免 CORS 預檢（simple request）
+function postAPI(body){
+  return fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body) })
+    .then(function(r){ return r.json(); });
+}
+
+function clearForm(){
+  ['jan','hinmei','taiwan','maker','shiire','moq','cost','jodai','caseWeight','hakoiri','itemWeight','fob','sdPrice','kikaku','biko']
+   .forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('preview').style.display='none'; document.getElementById('aiBtn').style.display='none'; photoB64='';
+  window.scrollTo(0,0);
+}
+function toggleExtra(){
+  var e=document.getElementById('extra'); e.style.display=(e.style.display==='block')?'none':'block';
+  set('t-toggle',(e.style.display==='block')?T().toggleClose:T().toggleOpen);
+}
+applyLang();
+</script>
+</body>
+</html>
